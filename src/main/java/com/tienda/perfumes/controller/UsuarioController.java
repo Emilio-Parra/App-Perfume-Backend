@@ -1,6 +1,10 @@
 
 package com.tienda.perfumes.controller;
 
+import com.tienda.perfumes.config.ApiRutas;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import com.tienda.perfumes.dto.RegistroRequest;
 import com.tienda.perfumes.dto.LoginRequest;
 import com.tienda.perfumes.model.Usuario;
@@ -23,7 +27,8 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/usuarios")
+@Tag(name = "Usuarios", description = "Registro, login y sesión de clientes")
+@RequestMapping(ApiRutas.V1 + "/usuarios")
 public class UsuarioController {
 
     private final UsuarioService usuarioService;
@@ -33,6 +38,7 @@ public class UsuarioController {
     }
 
     // Registrar un nuevo cliente
+    @Operation(summary = "Registrar un nuevo cliente")
     @PostMapping("/registro")
     public ResponseEntity<?> registrar(
             @RequestBody RegistroRequest datos) {
@@ -65,6 +71,7 @@ public class UsuarioController {
     }
 
     // Iniciar sesión como cliente
+    @Operation(summary = "Iniciar sesión como cliente")
     @PostMapping("/login")
     public ResponseEntity<?> iniciarSesion(
             @RequestBody LoginRequest datos,
@@ -114,6 +121,7 @@ public class UsuarioController {
     }
 
     // Consultar cantidad de clientes registrados
+    @Operation(summary = "Contar clientes registrados")
     @GetMapping("/total-clientes")
     public ResponseEntity<?> obtenerTotalClientes() {
 
@@ -126,6 +134,7 @@ public class UsuarioController {
 
 
     // Cerrar la sesión del cliente
+    @Operation(summary = "Cerrar la sesión del cliente")
     @PostMapping("/logout")
     public ResponseEntity<?> cerrarSesion(
             HttpServletRequest request) {

@@ -1,5 +1,9 @@
 package com.tienda.perfumes.controller;
 
+import com.tienda.perfumes.config.ApiRutas;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import com.tienda.perfumes.model.Usuario;
 import com.tienda.perfumes.repository.PedidoRepository;
 import com.tienda.perfumes.repository.UsuarioRepository;
@@ -13,10 +17,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-// Esta API esta protegida por /api/admin/** en SecurityConfig.
+// Esta API esta protegida por /api/v1/admin/** en SecurityConfig.
 // Los administradores se autentican con su propia tabla: aqui solo se gestionan clientes.
 @RestController
-@RequestMapping("/api/admin/usuarios")
+@Tag(name = "Admin - Clientes", description = "Gestión de clientes desde el panel")
+@RequestMapping(ApiRutas.V1 + "/admin/usuarios")
 public class AdminUsuariosController {
 
     private final UsuarioRepository usuarioRepository;
@@ -36,6 +41,7 @@ public class AdminUsuariosController {
                                String pass, String rol, String fechaNac,
                                String region, String comuna, String direccion) { }
 
+    @Operation(summary = "Listar clientes")
     @GetMapping
     public List<Usuario> listar() {
         return usuarioRepository.findAll().stream()
@@ -43,6 +49,7 @@ public class AdminUsuariosController {
                 .toList();
     }
 
+    @Operation(summary = "Crear un cliente")
     @PostMapping
     public ResponseEntity<?> crear(@RequestBody DatosUsuario datos) {
         if (datos == null || (datos.rol() != null && !"cliente".equals(datos.rol()))) {
@@ -65,6 +72,7 @@ public class AdminUsuariosController {
         }
     }
 
+    @Operation(summary = "Editar un cliente por correo")
     @PutMapping("/{correo}")
     public ResponseEntity<?> editar(@PathVariable String correo, @RequestBody DatosUsuario datos) {
         if (datos == null || (datos.rol() != null && !"cliente".equals(datos.rol()))) {
@@ -109,6 +117,7 @@ public class AdminUsuariosController {
         }
     }
 
+    @Operation(summary = "Eliminar un cliente (si no tiene pedidos)")
     @DeleteMapping("/{correo}")
     public ResponseEntity<?> eliminar(@PathVariable String correo) {
         Usuario usuario = usuarioRepository.findByCorreo(correo.toLowerCase(Locale.ROOT)).orElse(null);

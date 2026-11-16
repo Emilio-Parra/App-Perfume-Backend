@@ -1,6 +1,10 @@
 
 package com.tienda.perfumes.controller;
 
+import com.tienda.perfumes.config.ApiRutas;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import com.tienda.perfumes.model.Producto;
 import com.tienda.perfumes.service.ProductoService;
 
@@ -11,7 +15,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/productos")
+@Tag(name = "Productos", description = "Catálogo de perfumes (CRUD)")
+@RequestMapping(ApiRutas.V1 + "/productos")
 public class ProductoController {
 
     private final ProductoService productoService;
@@ -21,12 +26,14 @@ public class ProductoController {
     }
 
     // Obtener todos los productos
+    @Operation(summary = "Listar todos los productos")
     @GetMapping
     public List<Producto> obtenerTodos() {
         return productoService.obtenerTodos();
     }
 
     // Obtener un producto por ID
+    @Operation(summary = "Obtener un producto por ID")
     @GetMapping("/{id}")
     public ResponseEntity<Producto> obtenerPorId(@PathVariable Long id) {
         return productoService.obtenerPorId(id)
@@ -35,6 +42,7 @@ public class ProductoController {
     }
 
     // Crear un nuevo producto
+    @Operation(summary = "Crear un producto")
     @PostMapping
     public ResponseEntity<Producto> crearProducto(@RequestBody Producto producto) {
         Producto nuevo = productoService.guardarProducto(producto);
@@ -42,6 +50,7 @@ public class ProductoController {
     }
 
     // Actualizar un producto
+    @Operation(summary = "Actualizar un producto")
     @PutMapping("/{id}")
     public ResponseEntity<Producto> actualizarProducto(
             @PathVariable Long id,
@@ -53,6 +62,7 @@ public class ProductoController {
     }
 
     // Eliminar un producto
+    @Operation(summary = "Eliminar un producto")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminarProducto(@PathVariable Long id) {
         if (productoService.eliminarProducto(id)) {

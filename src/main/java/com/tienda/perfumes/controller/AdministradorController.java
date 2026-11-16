@@ -1,5 +1,9 @@
 package com.tienda.perfumes.controller;
 
+import com.tienda.perfumes.config.ApiRutas;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import com.tienda.perfumes.dto.LoginRequest;
 import com.tienda.perfumes.model.Administrador;
 import com.tienda.perfumes.service.AdministradorService;
@@ -24,7 +28,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 
 @RestController
-@RequestMapping("/api/admin")
+@Tag(name = "Administrador", description = "Login y perfil del administrador")
+@RequestMapping(ApiRutas.V1 + "/admin")
 public class AdministradorController {
 
     private final AdministradorService administradorService;
@@ -46,6 +51,7 @@ public class AdministradorController {
     }
 
     // Iniciar sesión como administrador
+    @Operation(summary = "Iniciar sesión como administrador")
     @PostMapping("/login")
     public ResponseEntity<?> iniciarSesion(
             @RequestBody LoginRequest datos,
@@ -94,6 +100,7 @@ public class AdministradorController {
     }
 
     // Perfil guardado en MySQL; no se toman IDs o correos desde React.
+    @Operation(summary = "Consultar el perfil del administrador autenticado")
     @GetMapping("/perfil")
     public ResponseEntity<?> consultarPerfil(Authentication autenticacion) {
         if (autenticacion == null) {
@@ -109,6 +116,7 @@ public class AdministradorController {
     public record CambiosPerfil(String nombre, String apellido, String pass) {}
 
     // Cambiar datos del administrador que está autenticado.
+    @Operation(summary = "Actualizar nombre, apellido o contraseña del administrador")
     @PutMapping("/perfil")
     public ResponseEntity<?> actualizarPerfil(
             @RequestBody CambiosPerfil cambios,
@@ -135,6 +143,7 @@ public class AdministradorController {
     }
 
     // Cerrar la sesión del administrador
+    @Operation(summary = "Cerrar la sesión del administrador")
     @PostMapping("/logout")
     public ResponseEntity<?> cerrarSesion(
             HttpServletRequest request) {

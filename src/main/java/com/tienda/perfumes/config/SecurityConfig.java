@@ -15,6 +15,8 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 @Configuration
 public class SecurityConfig {
 
+    private static final String API = ApiRutas.V1;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http)
             throws Exception {
@@ -23,7 +25,7 @@ public class SecurityConfig {
             // Configuración temporal para desarrollo.
             // La protección CSRF sigue pendiente.
             .csrf(csrf -> csrf
-                .ignoringRequestMatchers("/api/**")
+                .ignoringRequestMatchers(API + "/**")
             )
 
             // Recuperar la autenticación de la sesión
@@ -35,47 +37,67 @@ public class SecurityConfig {
 
             .authorizeHttpRequests(auth -> auth
 
+                // Documentación Swagger / OpenAPI
+                .requestMatchers(
+                    "/swagger-ui.html",
+                    "/swagger-ui/**",
+                    "/v3/api-docs/**"
+                ).permitAll()
+
                 // Inicio de sesión de administrador
                 .requestMatchers(
-                    HttpMethod.POST, "/api/admin/login"
+                    HttpMethod.POST, API + "/admin/login"
                 ).permitAll()
 
                 // Consultas privadas del administrador
                 .requestMatchers(
-                    "/api/pedidos/admin",
-                    "/api/usuarios/total-clientes"
+                    API + "/pedidos/admin",
+                    API + "/usuarios/total-clientes"
                 ).hasRole("ADMIN")
 
                 // Rutas administrativas
                 .requestMatchers(
-                    "/api/admin/**"
+                    API + "/admin/**"
                 ).hasRole("ADMIN")
 
                 // Gestión de productos
                 .requestMatchers(
-                    HttpMethod.POST, "/api/productos/**"
+                    HttpMethod.POST, API + "/productos/**"
                 ).hasRole("ADMIN")
 
                 .requestMatchers(
-                    HttpMethod.PUT, "/api/productos/**"
+                    HttpMethod.PUT, API + "/productos/**"
                 ).hasRole("ADMIN")
 
                 .requestMatchers(
-                    HttpMethod.DELETE, "/api/productos/**"
+                    HttpMethod.DELETE, API + "/productos/**"
+                ).hasRole("ADMIN")
+
+                // Gestión de categorías (antes quedaba abierta a cualquiera)
+                .requestMatchers(
+                    HttpMethod.POST, API + "/categorias/**"
+                ).hasRole("ADMIN")
+
+                .requestMatchers(
+                    HttpMethod.PUT, API + "/categorias/**"
+                ).hasRole("ADMIN")
+
+                .requestMatchers(
+                    HttpMethod.DELETE, API + "/categorias/**"
                 ).hasRole("ADMIN")
 
                 // Crear pedidos: requiere sesión de cliente
                 .requestMatchers(
-                    HttpMethod.POST, "/api/pedidos"
+                    HttpMethod.POST, API + "/pedidos"
                 ).hasRole("CLIENTE")
 
                 // Procesar pagos: requiere sesión de cliente
                 .requestMatchers(
-                    HttpMethod.POST, "/api/pedidos/*/pago"
+                    HttpMethod.POST, API + "/pedidos/*/pago"
                 ).hasRole("CLIENTE")
 
                 // Registro, login de clientes y catálogo
-                .requestMatchers("/api/**").permitAll()
+                .requestMatchers(API + "/**").permitAll()
 
                 .anyRequest().denyAll()
             )

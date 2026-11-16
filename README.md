@@ -4,7 +4,7 @@ Backend de **Perfumes Store**, proyecto de Fullstack 2. Está desarrollado con *
 
 - **Backend (este repositorio):** https://github.com/Emilio-Parra/App-Perfume-Backend
 - **Frontend:** https://github.com/Emilio-Parra/App-Perfume-eva2
-- **API local:** http://localhost:8080/api/productos
+- **API local:** http://localhost:8080/api/v1/productos
 - **Frontend local:** http://localhost:5173
 
 > **Importante:** estas instrucciones están pensadas para los **PC del instituto**, donde MySQL Workbench suele abrir la conexión local `root` sin pedir contraseña. La contraseña **`Root1234` es únicamente para el usuario de práctica `tienda_app`**, NO es la contraseña del usuario `root` ni la contraseña del administrador de la tienda. Es una clave de ejemplo conocida públicamente: **no la reutilices fuera de este proyecto académico ni almacenes datos reales con ella**.
@@ -100,7 +100,7 @@ El correo de administrador inicial es **`admin@duoc.cl`**. Su contraseña **no e
 
 Si funciona, aparecerá un mensaje similar a `Tomcat started on port 8080` y `Started PerfumesApplication`.
 
-**Comprobación:** abrir http://localhost:8080/api/productos en el navegador. Debe mostrar una lista JSON de perfumes.
+**Comprobación:** abrir http://localhost:8080/api/v1/productos en el navegador. Debe mostrar una lista JSON de perfumes.
 
 ### Alternativa: iniciar con Maven Wrapper directamente
 
@@ -150,7 +150,7 @@ Las imágenes de los 27 perfumes originales se sirven desde `app-perfumes/public
 | **Unknown database `tienda_perfumes`** | Falta ejecutar el bloque SQL del paso 2A desde la conexión de `root`. |
 | **Communications link failure / Connection refused** | Verificar que MySQL Server esté iniciado y que use el puerto `3306`. |
 | **Port 8080 already in use** | Ya hay otro backend en ejecución. Detenerlo con **Ctrl + C** antes de iniciar uno nuevo. |
-| **La tienda abre, pero no aparecen perfumes** | Revisar `http://localhost:8080/api/productos`, la conexión a MySQL y los mensajes de carga inicial. |
+| **La tienda abre, pero no aparecen perfumes** | Revisar `http://localhost:8080/api/v1/productos`, la conexión a MySQL y los mensajes de carga inicial. |
 | **No aparecen las fotos** | Comprobar que las imágenes existan en `app-perfumes/public/img/` y que el frontend esté iniciado. |
 | **`Administrador inicial: credenciales no configuradas`** | Si es la primera vez en esa base, detener el backend y volver a iniciarlo indicando la contraseña inicial del admin. Si el administrador ya existe, se puede ignorar. |
 | **`mvnw.cmd` no funciona / error de Java** | Verificar `java -version` y que se está ejecutando el comando dentro de la carpeta donde está `pom.xml`. |

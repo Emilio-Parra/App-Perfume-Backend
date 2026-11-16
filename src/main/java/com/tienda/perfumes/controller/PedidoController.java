@@ -1,6 +1,10 @@
 
 package com.tienda.perfumes.controller;
 
+import com.tienda.perfumes.config.ApiRutas;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import com.tienda.perfumes.dto.CrearPedidoRequest;
 import com.tienda.perfumes.model.Pedido;
 import com.tienda.perfumes.service.PedidoService;
@@ -14,7 +18,8 @@ import org.springframework.security.core.Authentication;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/pedidos")
+@Tag(name = "Pedidos (Boletas)", description = "Creación, pago y consulta de pedidos")
+@RequestMapping(ApiRutas.V1 + "/pedidos")
 public class PedidoController {
 
     private final PedidoService pedidoService;
@@ -24,6 +29,7 @@ public class PedidoController {
     }
 
     // Obtener todos los pedidos para el administrador
+    @Operation(summary = "Listar todos los pedidos con su detalle (panel administrador)")
     @GetMapping("/admin")
     public ResponseEntity<?> obtenerPedidosAdmin() {
 
@@ -33,6 +39,7 @@ public class PedidoController {
     }
 
     // Crear un pedido para el cliente autenticado
+    @Operation(summary = "Crear un pedido (boleta) para el cliente autenticado")
     @PostMapping
     public ResponseEntity<?> crearPedido(
             @RequestBody CrearPedidoRequest datos,
@@ -77,6 +84,7 @@ public class PedidoController {
     }
 
     // Procesar el pago de un pedido propio
+    @Operation(summary = "Procesar (simular) el pago de un pedido propio")
     @PostMapping("/{id}/pago")
     public ResponseEntity<?> procesarPago(
             @PathVariable Long id,

@@ -1,5 +1,9 @@
 package com.tienda.perfumes.controller;
 
+import com.tienda.perfumes.config.ApiRutas;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,11 +30,12 @@ import org.springframework.web.multipart.MultipartFile;
 
 /**
  * Guarda imágenes en una carpeta persistente y entrega una URL pública.
- * Spring Security ya limita POST /api/productos/** al administrador;
- * GET /api/** es público para que cualquier cliente vea los perfumes.
+ * Spring Security limita POST /api/v1/productos/** al administrador;
+ * GET /api/v1/** es público para que cualquier cliente vea los perfumes.
  */
 @RestController
-@RequestMapping("/api/productos/imagen")
+@Tag(name = "Imágenes de productos", description = "Subida y descarga de fotos de perfumes")
+@RequestMapping(ApiRutas.V1 + "/productos/imagen")
 public class ImagenProductoController {
 
     private static final int MAX_BYTES = 5 * 1024 * 1024;
@@ -41,6 +46,7 @@ public class ImagenProductoController {
         this.carpeta = Paths.get(directorio).toAbsolutePath().normalize();
     }
 
+    @Operation(summary = "Subir la imagen de un producto (JPG, PNG o WebP, máx. 5 MB)")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> subir(@RequestParam("archivo") MultipartFile archivo) {
         if (archivo == null || archivo.isEmpty()) {
@@ -62,13 +68,14 @@ public class ImagenProductoController {
             String nombre = UUID.randomUUID() + "." + extension;
             Files.write(carpeta.resolve(nombre), contenido, StandardOpenOption.CREATE_NEW);
             return ResponseEntity.status(HttpStatus.CREATED).body(
-                    Map.of("url", "/api/productos/imagen/" + nombre));
+                    Map.of("url", ApiRutas.V1 + "/productos/imagen/" + nombre));
         } catch (IOException ex) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "No se pudo almacenar la imagen en el servidor."));
         }
     }
 
+    @Operation(summary = "Descargar la imagen de un producto")
     @GetMapping("/{nombre:.+}")
     public ResponseEntity<Resource> visualizar(@PathVariable String nombre) {
         // El nombre lo genera el servidor. Evita traversal y archivos arbitrarios.

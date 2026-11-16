@@ -7,7 +7,7 @@ Backend de **Perfumes Store**, proyecto de Fullstack 2. Está desarrollado con *
 - **API local:** http://localhost:8080/api/v1/productos
 - **Frontend local:** http://localhost:5173
 
-> **Importante:** estas instrucciones están pensadas para los **PC del instituto**, donde MySQL Workbench suele abrir la conexión local `root` sin pedir contraseña. La contraseña **`Root1234` es únicamente para el usuario de práctica `tienda_app`**, NO es la contraseña del usuario `root` ni la contraseña del administrador de la tienda. Es una clave de ejemplo conocida públicamente: **no la reutilices fuera de este proyecto académico ni almacenes datos reales con ella**.
+> **Importante:** estas instrucciones están pensadas para los **PC del instituto**, donde MySQL Workbench suele abrir la conexión local `root` sin pedir contraseña. En esta guía usaremos **`Root1234` en las dos claves que solicita `iniciar-backend.ps1`**: la del usuario MySQL `tienda_app` y, durante la primera ejecución, la del administrador de la tienda `admin@duoc.cl`. **No es la contraseña de `root`**. Es una clave de ejemplo conocida públicamente: **no la reutilices fuera de este proyecto académico ni almacenes datos reales con ella**.
 
 ## 1. ¿Qué se necesita?
 
@@ -92,9 +92,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\iniciar-backend.ps1
 El script solicitará:
 
 1. **`Clave MySQL de tienda_app`:** escribir **`Root1234`**.
-2. **`Clave inicial del administrador`:** **solo la primera vez**, elegir una contraseña para el panel de administración y presionar Enter. En los siguientes inicios, **si ya existe la cuenta en esa misma base de datos**, se puede dejar en blanco y presionar Enter.
+2. **`Clave inicial del administrador`:** escribir también **`Root1234` la primera vez**, para crear la cuenta administrativa. En los siguientes inicios, **si ya existe la cuenta en esa misma base de datos**, se puede dejar en blanco y presionar Enter.
 
-El correo de administrador inicial es **`admin@duoc.cl`**. Su contraseña **no es necesariamente `Root1234`**: es la que se haya elegido en el primer inicio del backend para esa base local. No se publica ni se guarda en el repositorio; se almacena con hash BCrypt en MySQL.
+**En resumen: en la primera ejecución se escribe `Root1234` en ambas preguntas.** El correo del administrador inicial es **`admin@duoc.cl`**, por lo que el acceso de práctica queda como correo **`admin@duoc.cl`** y contraseña **`Root1234`**. La contraseña no se guarda en el repositorio; el backend almacena su hash BCrypt en MySQL. Por seguridad, utilicen esas credenciales **solo en los PC de práctica y nunca en un despliegue público**.
 
 **Dejar abierta esa terminal** mientras se use la aplicación. Para detener el backend, presionar **Ctrl + C**.
 
@@ -178,3 +178,117 @@ App-Perfume-Backend/
 ```
 
 **Notas de seguridad:** `Root1234` se documenta aquí únicamente para simplificar las prácticas en los computadores del instituto. Esta base y contraseña son **solo para desarrollo académico**. No subir contraseñas personales, respaldos con datos reales, variables de entorno ni carpetas `uploads/` a un repositorio público.
+
+## 8. Consultas útiles en MySQL Workbench
+
+Abrir la conexión **Tienda Perfumes**, crear una pestaña SQL y ejecutar primero:
+
+```sql
+USE tienda_perfumes;
+```
+
+Después se pueden ejecutar las siguientes consultas de manera individual con el botón del rayo. Son consultas de **solo lectura**: muestran datos, pero no borran ni modifican información.
+
+### Ver todos los perfumes
+
+```sql
+SELECT id, marca, modelo, tipo, genero, precio, descuento, stock
+FROM productos
+ORDER BY marca, modelo;
+```
+
+### Ver únicamente los perfumes de nicho
+
+```sql
+SELECT id, marca, modelo, precio, stock
+FROM productos
+WHERE tipo = 'nicho'
+ORDER BY marca, modelo;
+```
+
+### Ver perfumes árabes o de diseñador
+
+```sql
+SELECT marca, modelo, tipo, precio, stock
+FROM productos
+WHERE tipo IN ('arabe', 'diseñador')
+ORDER BY tipo, marca;
+```
+
+### Contar productos por categoría
+
+```sql
+SELECT tipo AS categoria, COUNT(*) AS cantidad
+FROM productos
+GROUP BY tipo
+ORDER BY tipo;
+```
+
+### Ver las categorías registradas
+
+```sql
+SELECT id, nombre, descripcion
+FROM categorias
+ORDER BY nombre;
+```
+
+### Consultar stock bajo (menos de 5 unidades)
+
+```sql
+SELECT marca, modelo, stock
+FROM productos
+WHERE stock < 5
+ORDER BY stock ASC, marca;
+```
+
+### Ver las compras o pedidos realizados
+
+```sql
+SELECT id, codigo, fecha, estado, total, usuario_id
+FROM pedidos
+ORDER BY fecha DESC;
+```
+
+> Si todavía no se ha realizado ninguna compra en ese computador, la consulta estará vacía. Los pedidos se guardan en la base local de cada PC.
+
+### Ver qué productos contiene cada pedido
+
+```sql
+SELECT p.codigo AS pedido, d.marca, d.modelo,
+       d.cantidad, d.precio,
+       (d.cantidad * d.precio) AS subtotal
+FROM detalle_pedidos AS d
+JOIN pedidos AS p ON p.id = d.pedido_id
+ORDER BY p.fecha DESC, p.codigo;
+```
+
+### Ver cantidad de pedidos y montos por estado
+
+```sql
+SELECT estado,
+       COUNT(*) AS cantidad_pedidos,
+       COALESCE(SUM(total), 0) AS monto_total
+FROM pedidos
+GROUP BY estado
+ORDER BY cantidad_pedidos DESC;
+```
+
+> El monto suma pedidos registrados de cada estado; **no equivale necesariamente a ventas pagadas o confirmadas**.
+
+### Ver los clientes registrados
+
+```sql
+SELECT id, nombre, apellido, correo, rol
+FROM usuarios
+ORDER BY id;
+```
+
+### Comprobar que existe el administrador
+
+```sql
+SELECT id, correo, nombre, apellido
+FROM administradores;
+```
+
+> Por seguridad, no es necesario consultar ni copiar el campo `password_hash`: las contraseñas se validan desde el backend.
+

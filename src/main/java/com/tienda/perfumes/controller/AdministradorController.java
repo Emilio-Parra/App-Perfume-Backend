@@ -11,6 +11,7 @@ import com.tienda.perfumes.service.AdministradorService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,7 +26,6 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 
 @RestController
 @Tag(name = "Administrador", description = "Login y perfil del administrador")
@@ -54,7 +54,7 @@ public class AdministradorController {
     @Operation(summary = "Iniciar sesión como administrador")
     @PostMapping("/login")
     public ResponseEntity<?> iniciarSesion(
-            @RequestBody LoginRequest datos,
+            @Valid @RequestBody LoginRequest datos,
             HttpServletRequest request,
             HttpServletResponse response) {
 
@@ -126,20 +126,14 @@ public class AdministradorController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        try {
-            Administrador actualizado = administradorService.actualizarPerfil(
-                    autenticacion.getName(),
-                    cambios.nombre(),
-                    cambios.apellido(),
-                    cambios.pass()
-            );
-            return ResponseEntity.ok(datosPublicos(actualizado));
-        } catch (IllegalArgumentException error) {
-            return ResponseEntity.badRequest().body(Map.of("error", error.getMessage()));
-        } catch (NoSuchElementException error) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", error.getMessage()));
-        }
+        // Los errores (400 datos inválidos, 404 no existe) los responde GlobalExceptionHandler
+        Administrador actualizado = administradorService.actualizarPerfil(
+                autenticacion.getName(),
+                cambios.nombre(),
+                cambios.apellido(),
+                cambios.pass()
+        );
+        return ResponseEntity.ok(datosPublicos(actualizado));
     }
 
     // Cerrar la sesión del administrador

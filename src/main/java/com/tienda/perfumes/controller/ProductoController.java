@@ -2,11 +2,14 @@
 package com.tienda.perfumes.controller;
 
 import com.tienda.perfumes.config.ApiRutas;
+import com.tienda.perfumes.dto.ProductoRequest;
+import com.tienda.perfumes.model.Producto;
+import com.tienda.perfumes.service.ProductoService;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
-import com.tienda.perfumes.model.Producto;
-import com.tienda.perfumes.service.ProductoService;
+import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -32,43 +35,35 @@ public class ProductoController {
         return productoService.obtenerTodos();
     }
 
-    // Obtener un producto por ID
+    // Obtener un producto por ID (404 si no existe)
     @Operation(summary = "Obtener un producto por ID")
     @GetMapping("/{id}")
-    public ResponseEntity<Producto> obtenerPorId(@PathVariable Long id) {
-        return productoService.obtenerPorId(id)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+    public Producto obtenerPorId(@PathVariable Long id) {
+        return productoService.buscarPorId(id);
     }
 
-    // Crear un nuevo producto
+    // Crear un nuevo producto (los datos se validan con @Valid)
     @Operation(summary = "Crear un producto")
     @PostMapping
-    public ResponseEntity<Producto> crearProducto(@RequestBody Producto producto) {
-        Producto nuevo = productoService.guardarProducto(producto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(nuevo);
+    public ResponseEntity<Producto> crearProducto(@Valid @RequestBody ProductoRequest datos) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(productoService.crear(datos));
     }
 
     // Actualizar un producto
     @Operation(summary = "Actualizar un producto")
     @PutMapping("/{id}")
-    public ResponseEntity<Producto> actualizarProducto(
+    public Producto actualizarProducto(
             @PathVariable Long id,
-            @RequestBody Producto producto) {
+            @Valid @RequestBody ProductoRequest datos) {
 
-        return productoService.actualizarProducto(id, producto)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+        return productoService.actualizar(id, datos);
     }
 
     // Eliminar un producto
     @Operation(summary = "Eliminar un producto")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminarProducto(@PathVariable Long id) {
-        if (productoService.eliminarProducto(id)) {
-            return ResponseEntity.noContent().build();
-        }
-
-        return ResponseEntity.notFound().build();
+        productoService.eliminar(id);
+        return ResponseEntity.noContent().build();
     }
 }

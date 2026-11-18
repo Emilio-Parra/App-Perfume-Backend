@@ -2,11 +2,14 @@
 package com.tienda.perfumes.controller;
 
 import com.tienda.perfumes.config.ApiRutas;
+import com.tienda.perfumes.dto.CategoriaRequest;
+import com.tienda.perfumes.model.Categoria;
+import com.tienda.perfumes.service.CategoriaService;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
-import com.tienda.perfumes.model.Categoria;
-import com.tienda.perfumes.service.CategoriaService;
+import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -32,43 +35,35 @@ public class CategoriaController {
         return categoriaService.obtenerTodas();
     }
 
-    // Obtener una categoria por ID
+    // Obtener una categoria por ID (404 si no existe)
     @Operation(summary = "Obtener una categoría por ID")
     @GetMapping("/{id}")
-    public ResponseEntity<Categoria> obtenerPorId(@PathVariable Long id) {
-        return categoriaService.obtenerPorId(id)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+    public Categoria obtenerPorId(@PathVariable Long id) {
+        return categoriaService.buscarPorId(id);
     }
 
-    // Crear una nueva categoria
+    // Crear una nueva categoria (409 si el nombre ya existe)
     @Operation(summary = "Crear una categoría")
     @PostMapping
-    public ResponseEntity<Categoria> crearCategoria(@RequestBody Categoria categoria) {
-        Categoria nueva = categoriaService.guardarCategoria(categoria);
-        return ResponseEntity.status(HttpStatus.CREATED).body(nueva);
+    public ResponseEntity<Categoria> crearCategoria(@Valid @RequestBody CategoriaRequest datos) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(categoriaService.crear(datos));
     }
 
     // Actualizar una categoria
     @Operation(summary = "Actualizar una categoría")
     @PutMapping("/{id}")
-    public ResponseEntity<Categoria> actualizarCategoria(
+    public Categoria actualizarCategoria(
             @PathVariable Long id,
-            @RequestBody Categoria categoria) {
+            @Valid @RequestBody CategoriaRequest datos) {
 
-        return categoriaService.actualizarCategoria(id, categoria)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.notFound().build());
+        return categoriaService.actualizar(id, datos);
     }
 
-    // Eliminar una categoria
+    // Eliminar una categoria (409 si tiene productos)
     @Operation(summary = "Eliminar una categoría")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> eliminarCategoria(@PathVariable Long id) {
-        if (categoriaService.eliminarCategoria(id)) {
-            return ResponseEntity.noContent().build();
-        }
-
-        return ResponseEntity.notFound().build();
+        categoriaService.eliminar(id);
+        return ResponseEntity.noContent().build();
     }
 }

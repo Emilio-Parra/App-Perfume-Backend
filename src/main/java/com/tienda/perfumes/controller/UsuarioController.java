@@ -11,6 +11,7 @@ import com.tienda.perfumes.model.Usuario;
 import com.tienda.perfumes.service.UsuarioService;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.http.HttpStatus;
@@ -40,41 +41,21 @@ public class UsuarioController {
     // Registrar un nuevo cliente
     @Operation(summary = "Registrar un nuevo cliente")
     @PostMapping("/registro")
-    public ResponseEntity<?> registrar(
-            @RequestBody RegistroRequest datos) {
+    public ResponseEntity<Usuario> registrar(
+            @Valid @RequestBody RegistroRequest datos) {
 
-        try {
-            Usuario usuario = new Usuario();
-
-            usuario.setRut(datos.rut());
-            usuario.setCorreo(datos.correo());
-            usuario.setNombre(datos.nombre());
-            usuario.setApellido(datos.apellido());
-            usuario.setFechaNac(datos.fechaNac());
-            usuario.setRegion(datos.region());
-            usuario.setComuna(datos.comuna());
-            usuario.setDireccion(datos.direccion());
-
-            Usuario nuevo = usuarioService.registrarCliente(
-                    usuario, datos.pass()
-            );
-
-            return ResponseEntity
-                    .status(HttpStatus.CREATED)
-                    .body(nuevo);
-
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity
-                    .badRequest()
-                    .body(Map.of("error", e.getMessage()));
-        }
+        // Las reglas (RUN, correo, largos) se validan con @Valid
+        // y los duplicados en UsuarioService (409 Conflict).
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(usuarioService.registrar(datos));
     }
 
     // Iniciar sesión como cliente
     @Operation(summary = "Iniciar sesión como cliente")
     @PostMapping("/login")
     public ResponseEntity<?> iniciarSesion(
-            @RequestBody LoginRequest datos,
+            @Valid @RequestBody LoginRequest datos,
             HttpServletRequest request,
             HttpServletResponse response) {
 

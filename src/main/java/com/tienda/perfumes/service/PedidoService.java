@@ -2,6 +2,8 @@
 package com.tienda.perfumes.service;
 
 import com.tienda.perfumes.dto.CrearPedidoRequest;
+import com.tienda.perfumes.exception.ConflictoException;
+import com.tienda.perfumes.exception.RecursoNoEncontradoException;
 import com.tienda.perfumes.model.DetallePedido;
 import com.tienda.perfumes.model.Pedido;
 import com.tienda.perfumes.model.Producto;
@@ -11,6 +13,7 @@ import com.tienda.perfumes.repository.PedidoRepository;
 import com.tienda.perfumes.repository.ProductoRepository;
 import com.tienda.perfumes.repository.UsuarioRepository;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -60,6 +63,28 @@ public class PedidoService {
         return pedidoRepository.findByEstado(estado);
     }
 
+    // Crear un pedido comprobando que sea del cliente que inició sesión
+    @Transactional
+    public Pedido crearPedidoDeCliente(CrearPedidoRequest datos, Long usuarioAutenticadoId) {
+        if (datos.usuarioId() == null || !datos.usuarioId().equals(usuarioAutenticadoId)) {
+            throw new AccessDeniedException("No puedes crear pedidos para otro usuario.");
+        }
+        return crearPedido(datos);
+    }
+
+    // Pagar un pedido comprobando que sea del cliente que inició sesión
+    @Transactional
+    public Pedido procesarPagoDeCliente(Long pedidoId, Long usuarioAutenticadoId) {
+        Pedido pedido = pedidoRepository.findById(pedidoId)
+                .orElseThrow(() -> new RecursoNoEncontradoException("El pedido no existe."));
+
+        if (pedido.getUsuario() == null
+                || !pedido.getUsuario().getId().equals(usuarioAutenticadoId)) {
+            throw new AccessDeniedException("No puedes pagar un pedido de otro usuario.");
+        }
+        return procesarPago(pedidoId);
+    }
+
     // Crear un pedido con sus productos
     @Transactional
     public Pedido crearPedido(CrearPedidoRequest datos) {
@@ -75,7 +100,7 @@ public class PedidoService {
         Usuario usuario = usuarioRepository
                 .findById(datos.usuarioId())
                 .orElseThrow(() ->
-                        new IllegalArgumentException(
+                        new RecursoNoEncontradoException(
                                 "El usuario no existe."
                         )
                 );
@@ -127,8 +152,8 @@ public class PedidoService {
             Producto producto = productoRepository
                     .findById(item.id())
                     .orElseThrow(() ->
-                            new IllegalArgumentException(
-                                    "Uno de los productos no existe."
+                            new RecursoNoEncontradoException(
+                                    "El producto con ID " + item.id() + " ya no existe."
                             )
                     );
 
@@ -141,8 +166,10 @@ public class PedidoService {
 
             if (producto.getStock() == null ||
                     producto.getStock() < item.cantidad()) {
-                throw new IllegalArgumentException(
-                        "No hay stock suficiente."
+                throw new ConflictoException(
+                        "No hay stock suficiente de " + producto.getMarca() + " "
+                                + producto.getModelo() + ". Disponibles: "
+                                + (producto.getStock() == null ? 0 : producto.getStock()) + "."
                 );
             }
 
@@ -191,14 +218,14 @@ public class PedidoService {
 
         Pedido pedido = pedidoRepository.findById(pedidoId)
                 .orElseThrow(() ->
-                        new IllegalArgumentException(
+                        new RecursoNoEncontradoException(
                                 "El pedido no existe."
                         )
                 );
 
         // Evitar descontar el stock dos veces
         if ("pagado".equals(pedido.getEstado())) {
-            throw new IllegalArgumentException(
+            throw new ConflictoException(
                     "Este pedido ya fue pagado."
             );
         }
@@ -214,15 +241,17 @@ public class PedidoService {
                 Producto producto = productoRepository
                         .findById(detalle.getProductoId())
                         .orElseThrow(() ->
-                                new IllegalArgumentException(
-                                        "El producto no existe."
+                                new RecursoNoEncontradoException(
+                                        "El producto " + detalle.getMarca() + " "
+                                                + detalle.getModelo() + " ya no existe."
                                 )
                         );
 
                 if (producto.getStock() == null ||
                         producto.getStock() < detalle.getCantidad()) {
-                    throw new IllegalArgumentException(
-                            "Stock insuficiente para completar el pago."
+                    throw new ConflictoException(
+                            "Stock insuficiente de " + producto.getMarca() + " "
+                                    + producto.getModelo() + " para completar el pago."
                     );
                 }
 

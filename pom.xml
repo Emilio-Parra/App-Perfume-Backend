@@ -50,6 +50,12 @@
 		</dependency>
 
 
+		<!-- Validación de datos de entrada (@Valid, @NotBlank, @Size, @Min, etc.) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
+		</dependency>
+
 		<!-- Documentación de la API con Swagger / OpenAPI (versión 3.x para Spring Boot 4) -->
 		<dependency>
 			<groupId>org.springdoc</groupId>

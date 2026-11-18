@@ -1,6 +1,6 @@
 # Perfumes Store — Backend
 
-Backend de **Perfumes Store**, proyecto de Fullstack 2. Está desarrollado con **Java 21+, Spring Boot, Spring Data JPA / Hibernate y MySQL**. Expone una API REST para que el frontend en React consulte productos, categorías, usuarios y pedidos, y utilice las funciones de administración.
+Backend de **Perfumes Store**, proyecto de Fullstack 2. Está desarrollado con **Java 21+, Spring Boot, Spring Data JPA / Hibernate y MySQL**. Expone una **API REST versionada como `/api/v1`** para que el frontend en React consulte productos, categorías, usuarios y pedidos, y utilice las funciones de administración.
 
 - **Backend (este repositorio):** https://github.com/Emilio-Parra/App-Perfume-Backend
 - **Frontend:** https://github.com/Emilio-Parra/App-Perfume-eva2
@@ -100,7 +100,7 @@ El script solicitará:
 
 Si funciona, aparecerá un mensaje similar a `Tomcat started on port 8080` y `Started PerfumesApplication`.
 
-**Comprobación:** abrir http://localhost:8080/api/v1/productos en el navegador. Debe mostrar una lista JSON de perfumes.
+**Comprobación:** abrir http://localhost:8080/api/v1/productos en el navegador. Debe mostrar una lista JSON de perfumes. Para explorar el contrato completo, usar **Swagger UI** en http://localhost:8080/swagger-ui.html o el JSON en http://localhost:8080/v3/api-docs.
 
 ### Alternativa: iniciar con Maven Wrapper directamente
 
@@ -138,11 +138,63 @@ npm run dev
 
 Abrir **http://localhost:5173**.
 
-El frontend consulta la API mediante `/api`, que Vite dirige al backend en el puerto **8080**. Por eso **los dos servidores deben estar ejecutándose al mismo tiempo**.
+El frontend conserva por ahora llamadas a `/api/...`. Como el backend responde en **`/api/v1/...`**, el archivo `vite.config.js` del frontend **debe incluir una regla `rewrite`** para traducir esos caminos durante `npm run dev`. Por eso **ambos servidores deben estar funcionando al mismo tiempo**.
+
+```js
+rewrite: (path) => path.replace(/^\/api(?!\/v1)/, '/api/v1'),
+```
+
+Esta adaptación es para desarrollo. No reemplaza la configuración del servidor en un despliegue de producción. La futura migración a JWT y a URLs v1 directas no está incluida en esta versión.
 
 Las imágenes de los 27 perfumes originales se sirven desde `app-perfumes/public/img/` del frontend; sus rutas se guardan en MySQL. Las imágenes nuevas cargadas en administración se guardan localmente en la carpeta `uploads/` del backend, que está excluida de Git. Si quieren compartir esas nuevas imágenes entre equipos, deben respaldarlas por separado.
 
-## 6. Errores frecuentes y solución
+## 6. API REST v1, Swagger y seguridad
+
+### Versionado de rutas
+
+La versión actual de la API utiliza el prefijo **`/api/v1`**, centralizado en `src/main/java/com/tienda/perfumes/config/ApiRutas.java` como `ApiRutas.V1`.
+
+| Área | Ruta base |
+|---|---|
+| Productos | `/api/v1/productos` |
+| Categorías | `/api/v1/categorias` |
+| Pedidos | `/api/v1/pedidos` |
+| Usuarios | `/api/v1/usuarios` |
+| Administrador | `/api/v1/admin` |
+| Gestión de clientes | `/api/v1/admin/usuarios` |
+| Imágenes | `/api/v1/productos/imagen` |
+
+Se versiona para que en el futuro se pueda incorporar `/api/v2` sin cambiar el comportamiento que esperan los clientes de la versión v1.
+
+### Swagger / OpenAPI
+
+El backend incorpora `springdoc-openapi-starter-webmvc-ui` (3.2.0) y `OpenApiConfig.java`. Con Spring Boot iniciado:
+
+- **Interfaz Swagger:** http://localhost:8080/swagger-ui.html
+- **Definición OpenAPI JSON:** http://localhost:8080/v3/api-docs
+- **Ejemplo de endpoint público:** http://localhost:8080/api/v1/productos
+
+Los controladores incluyen etiquetas `@Tag` y descripciones `@Operation` para facilitar la exploración de los endpoints. Swagger permite consultar y probar operaciones, pero las operaciones protegidas seguirán necesitando una sesión con el rol adecuado.
+
+### Autenticación y permisos
+
+El acceso de clientes y administrador utiliza **sesiones de Spring Security**, no JWT. Para la API v1, la configuración esperada de permisos es:
+
+| Operación | Quién puede |
+|---|---|
+| Consultar productos y categorías | Público |
+| Registrarse e iniciar sesión | Público |
+| Consultar Swagger | Público, solo en este entorno de práctica |
+| Crear, editar, borrar productos y categorías | Administrador autenticado |
+| Subir imágenes | Administrador autenticado |
+| Gestionar clientes y consultar pedidos administrativos | Administrador autenticado |
+| Crear pedidos y simular pagos | Cliente autenticado |
+
+**Importante para la evaluación:** verificar antes de la entrega que `SecurityConfig.java` realmente use rutas `/api/v1/...`, restrinja los métodos POST/PUT/DELETE de categorías y proteja los endpoints de imágenes. No basta con cambiar el prefijo en los controladores: las reglas de autorización también deben coincidir.
+
+> **Aviso de seguridad:** el proyecto es académico y usa una configuración de desarrollo. No se debe considerar preparado para producción ni afirmar que usa JWT. La protección CSRF y el endurecimiento de autenticación se deben revisar antes de cualquier despliegue público.
+
+## 7. Errores frecuentes y solución
 
 | Problema | Qué revisar |
 |---|---|
@@ -151,18 +203,21 @@ Las imágenes de los 27 perfumes originales se sirven desde `app-perfumes/public
 | **Communications link failure / Connection refused** | Verificar que MySQL Server esté iniciado y que use el puerto `3306`. |
 | **Port 8080 already in use** | Ya hay otro backend en ejecución. Detenerlo con **Ctrl + C** antes de iniciar uno nuevo. |
 | **La tienda abre, pero no aparecen perfumes** | Revisar `http://localhost:8080/api/v1/productos`, la conexión a MySQL y los mensajes de carga inicial. |
+| **404 en `/api/productos`** | Esa es la ruta antigua. Probar `/api/v1/productos`. En el frontend, verificar el `rewrite` del proxy de Vite. |
+| **No abre Swagger** | Comprobar que el backend esté iniciado y probar `/swagger-ui.html` y `/v3/api-docs`. |
+| **Error 401/403 al guardar categorías** | Verificar sesión de ADMIN y las reglas `/api/v1/categorias/**` de `SecurityConfig.java`. |
 | **No aparecen las fotos** | Comprobar que las imágenes existan en `app-perfumes/public/img/` y que el frontend esté iniciado. |
 | **`Administrador inicial: credenciales no configuradas`** | Si es la primera vez en esa base, detener el backend y volver a iniciarlo indicando la contraseña inicial del admin. Si el administrador ya existe, se puede ignorar. |
 | **`mvnw.cmd` no funciona / error de Java** | Verificar `java -version` y que se está ejecutando el comando dentro de la carpeta donde está `pom.xml`. |
 
-## 7. Organización básica del proyecto
+## 8. Organización básica del proyecto
 
 ```text
 App-Perfume-Backend/
 ├── src/
 │   └── main/
 │       ├── java/com/tienda/perfumes/
-│       │   ├── config/       # Configuración, seguridad y carga inicial
+│       │   ├── config/       # API v1, OpenAPI, seguridad y carga inicial
 │       │   ├── controller/   # Endpoints REST
 │       │   ├── dto/          # Datos de entrada de las solicitudes
 │       │   ├── model/        # Entidades de MySQL
@@ -179,7 +234,7 @@ App-Perfume-Backend/
 
 **Notas de seguridad:** `Root1234` se documenta aquí únicamente para simplificar las prácticas en los computadores del instituto. Esta base y contraseña son **solo para desarrollo académico**. No subir contraseñas personales, respaldos con datos reales, variables de entorno ni carpetas `uploads/` a un repositorio público.
 
-## 8. Consultas útiles en MySQL Workbench
+## 9. Consultas útiles en MySQL Workbench
 
 Abrir la conexión **Tienda Perfumes**, crear una pestaña SQL y ejecutar primero:
 
@@ -292,3 +347,26 @@ FROM administradores;
 
 > Por seguridad, no es necesario consultar ni copiar el campo `password_hash`: las contraseñas se validan desde el backend.
 
+
+
+## 10. Trabajo en equipo y comprobación de la versión
+
+Antes de iniciar en otro PC, desde **cada repositorio** ejecuten `git pull origin main` para traer los cambios publicados. En el backend comprueben que existen `ApiRutas.java`, `OpenApiConfig.java` y que `SecurityConfig.java` contiene reglas para `/api/v1`. En el frontend, comprueben que `vite.config.js` contiene la línea `rewrite` indicada arriba.
+
+Si el backend funciona en `/api/v1/productos`, pero el frontend aún consulta `/api/productos` y **no tiene el `rewrite`**, puede haber errores 404. Los cambios deben estar subidos a **ambos repositorios** antes de pedirle a otro compañero que los clone.
+
+```powershell
+# Desde la carpeta correspondiente a cada repositorio:
+git pull origin main
+```
+
+Para documentar los cambios del backend, utilicen la terminal en `App-Perfume-Backend`:
+
+```powershell
+git status
+git add README.md
+git commit -m "docs: explicar API v1 y Swagger"
+git push origin main
+```
+
+> La cuenta `admin@duoc.cl` y su contraseña son locales. En un primer arranque de práctica se puede usar `Root1234` en las dos preguntas de `iniciar-backend.ps1`, pero eso no reemplaza la contraseña de un administrador existente. Un valor anterior como `admin123` no queda fijado en el código por esta documentación.

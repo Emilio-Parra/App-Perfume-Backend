@@ -13,6 +13,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -28,14 +29,21 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Seguridad de la API con JWT.
+ * Seguridad de la API con JWT y roles.
  *
  * - Sin sesiones en el servidor (STATELESS): cada petición trae su token
  *   en el encabezado  Authorization: Bearer <token>
  * - JwtAuthenticationFilter valida el token y registra el rol.
- * - Aquí se define qué rol puede usar cada ruta.
+ * - Aquí se define qué rol puede usar cada ruta. Además, @EnableMethodSecurity
+ *   activa @PreAuthorize en los controladores como segunda capa de control.
+ *
+ * Roles:
+ *   ADMIN    -> acceso total
+ *   VENDEDOR -> solo puede ver productos (público) y pedidos (listado y detalle)
+ *   CLIENTE  -> solo la tienda: comprar y pagar sus propios pedidos
  */
 @Configuration
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private static final String API = ApiRutas.V1;
@@ -79,11 +87,11 @@ public class SecurityConfig {
                     API + "/usuarios/registro"
                 ).permitAll()
 
+                // Pedidos: el ADMIN y el VENDEDOR pueden ver el listado y el detalle
+                .requestMatchers(HttpMethod.GET, API + "/pedidos/**").hasAnyRole("ADMIN", "VENDEDOR")
+
                 // Consultas privadas del administrador
-                .requestMatchers(
-                    API + "/pedidos/admin",
-                    API + "/usuarios/total-clientes"
-                ).hasRole("ADMIN")
+                .requestMatchers(API + "/usuarios/total-clientes").hasRole("ADMIN")
 
                 // Rutas administrativas (perfil, gestión de clientes)
                 .requestMatchers(

@@ -274,64 +274,75 @@ public class PedidoService {
     }
 
 
-    // Preparar los pedidos para mostrarlos en el administrador
+    // Preparar los pedidos para mostrarlos en el panel (admin y vendedor)
     @Transactional(readOnly = true)
     public List<Map<String, Object>> obtenerPedidosAdmin() {
+        return pedidoRepository.findAll().stream()
+                .map(this::convertirParaPanel)
+                .toList();
+    }
 
-        return pedidoRepository.findAll().stream().map(pedido -> {
+    // Detalle de un pedido para el panel (admin y vendedor)
+    @Transactional(readOnly = true)
+    public Map<String, Object> obtenerDetalleAdmin(Long id) {
+        Pedido pedido = pedidoRepository.findById(id)
+                .orElseThrow(() -> new RecursoNoEncontradoException(
+                        "No existe el pedido con ID " + id + "."));
+        return convertirParaPanel(pedido);
+    }
 
-            Map<String, Object> datos = new LinkedHashMap<>();
+    // Datos del pedido, del cliente, del envío y de cada producto comprado
+    private Map<String, Object> convertirParaPanel(Pedido pedido) {
+        Map<String, Object> datos = new LinkedHashMap<>();
 
-            datos.put("id", pedido.getId());
-            datos.put("codigo", pedido.getCodigo());
-            datos.put("fecha", pedido.getFecha().toString());
-            datos.put("estado", pedido.getEstado());
-            datos.put("intentos", pedido.getIntentos());
-            datos.put("total", pedido.getTotal());
+        datos.put("id", pedido.getId());
+        datos.put("codigo", pedido.getCodigo());
+        datos.put("fecha", pedido.getFecha().toString());
+        datos.put("estado", pedido.getEstado());
+        datos.put("intentos", pedido.getIntentos());
+        datos.put("total", pedido.getTotal());
 
-            // Incluir la información de entrega también en las consultas admin.
-            Map<String, Object> cliente = new LinkedHashMap<>();
-            cliente.put("nombre", pedido.getClienteNombre());
-            cliente.put("apellido", pedido.getClienteApellido());
-            cliente.put("correo", pedido.getClienteCorreo());
-            datos.put("cliente", cliente);
+        // Incluir la información de entrega también en las consultas admin.
+        Map<String, Object> cliente = new LinkedHashMap<>();
+        cliente.put("nombre", pedido.getClienteNombre());
+        cliente.put("apellido", pedido.getClienteApellido());
+        cliente.put("correo", pedido.getClienteCorreo());
+        datos.put("cliente", cliente);
 
-            Map<String, Object> envio = new LinkedHashMap<>();
-            envio.put("calle", pedido.getEnvioCalle());
-            envio.put("departamento", pedido.getEnvioDepartamento());
-            envio.put("region", pedido.getEnvioRegion());
-            envio.put("comuna", pedido.getEnvioComuna());
-            envio.put("indicaciones", pedido.getEnvioIndicaciones());
-            datos.put("envio", envio);
+        Map<String, Object> envio = new LinkedHashMap<>();
+        envio.put("calle", pedido.getEnvioCalle());
+        envio.put("departamento", pedido.getEnvioDepartamento());
+        envio.put("region", pedido.getEnvioRegion());
+        envio.put("comuna", pedido.getEnvioComuna());
+        envio.put("indicaciones", pedido.getEnvioIndicaciones());
+        datos.put("envio", envio);
 
-            datos.put(
-                "usuarioId",
-                pedido.getUsuario().getId()
-            );
+        datos.put(
+            "usuarioId",
+            pedido.getUsuario().getId()
+        );
 
-            // Productos guardados en cada pedido
-            datos.put(
-                "items",
-                pedido.getDetalles().stream().map(detalle -> {
+        // Productos guardados en cada pedido
+        datos.put(
+            "items",
+            pedido.getDetalles().stream().map(detalle -> {
 
-                    Map<String, Object> item = new LinkedHashMap<>();
+                Map<String, Object> item = new LinkedHashMap<>();
 
-                    item.put("id", detalle.getProductoId());
-                    item.put("marca", detalle.getMarca());
-                    item.put("modelo", detalle.getModelo());
-                    item.put("tipo", detalle.getTipo());
-                    item.put("imagenes", detalle.getImagenes());
-                    item.put("precio", detalle.getPrecio());
-                    item.put("cantidad", detalle.getCantidad());
+                item.put("id", detalle.getProductoId());
+                item.put("marca", detalle.getMarca());
+                item.put("modelo", detalle.getModelo());
+                item.put("tipo", detalle.getTipo());
+                item.put("imagenes", detalle.getImagenes());
+                item.put("precio", detalle.getPrecio());
+                item.put("cantidad", detalle.getCantidad());
 
-                    return item;
+                return item;
 
-                }).toList()
-            );
+            }).toList()
+        );
 
-            return datos;
-
-        }).toList();
+        return datos;
     }
 
 }

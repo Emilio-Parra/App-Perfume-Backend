@@ -16,11 +16,11 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-// Esta API esta protegida por /api/v1/admin/** en SecurityConfig.
-// Los administradores se autentican con su propia tabla: aqui solo se gestionan clientes.
-// Toda la lógica (duplicados, contraseñas, pedidos asociados) está en UsuarioService.
+// Esta API esta protegida por /api/v1/admin/** en SecurityConfig (solo ADMIN).
+// Los administradores se autentican con su propia tabla: aqui se gestionan
+// clientes y vendedores. Toda la lógica está en UsuarioService.
 @RestController
-@Tag(name = "Admin - Clientes", description = "Gestión de clientes desde el panel")
+@Tag(name = "Admin - Usuarios", description = "Gestión de clientes y vendedores desde el panel (solo ADMIN)")
 @RequestMapping(ApiRutas.V1 + "/admin/usuarios")
 public class AdminUsuariosController {
 
@@ -30,29 +30,29 @@ public class AdminUsuariosController {
         this.usuarioService = usuarioService;
     }
 
-    @Operation(summary = "Listar clientes")
+    @Operation(summary = "Listar clientes y vendedores")
     @GetMapping
     public List<Usuario> listar() {
-        return usuarioService.listarClientes();
+        return usuarioService.listarUsuariosGestionables();
     }
 
-    @Operation(summary = "Crear un cliente")
+    @Operation(summary = "Crear un cliente o vendedor (campo rol: cliente | vendedor)")
     @PostMapping
     public ResponseEntity<Usuario> crear(@Valid @RequestBody UsuarioAdminRequest datos) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(usuarioService.crearCliente(datos));
+        return ResponseEntity.status(HttpStatus.CREATED).body(usuarioService.crearUsuario(datos));
     }
 
-    @Operation(summary = "Editar un cliente por correo")
+    @Operation(summary = "Editar un cliente o vendedor por correo")
     @PutMapping("/{correo}")
     public Usuario editar(@PathVariable String correo,
                           @Valid @RequestBody UsuarioAdminRequest datos) {
-        return usuarioService.actualizarCliente(correo, datos);
+        return usuarioService.actualizarUsuario(correo, datos);
     }
 
-    @Operation(summary = "Eliminar un cliente (si no tiene pedidos)")
+    @Operation(summary = "Eliminar un cliente o vendedor (si no tiene pedidos)")
     @DeleteMapping("/{correo}")
     public ResponseEntity<Void> eliminar(@PathVariable String correo) {
-        usuarioService.eliminarCliente(correo);
+        usuarioService.eliminarUsuario(correo);
         return ResponseEntity.noContent().build();
     }
 }

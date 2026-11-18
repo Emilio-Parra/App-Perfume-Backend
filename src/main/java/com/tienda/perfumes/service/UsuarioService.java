@@ -16,11 +16,17 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class UsuarioService {
 
     public static final String ROL_CLIENTE = "cliente";
+    public static final String ROL_VENDEDOR = "vendedor";
+
+    // Roles que el administrador puede asignar desde el panel.
+    // El rol "admin" NO está aquí: los administradores viven en su propia tabla.
+    public static final Set<String> ROLES_GESTIONABLES = Set.of(ROL_CLIENTE, ROL_VENDEDOR);
 
     private final UsuarioRepository usuarioRepository;
     private final PedidoRepository pedidoRepository;
@@ -53,6 +59,11 @@ public class UsuarioService {
     // Registrar un nuevo cliente (todas las cuentas públicas son clientes)
     @Transactional
     public Usuario registrarCliente(Usuario datos, String contrasena) {
+        return registrarConRol(datos, contrasena, ROL_CLIENTE);
+    }
+
+    // Crear una cuenta con el rol indicado (cliente o vendedor)
+    private Usuario registrarConRol(Usuario datos, String contrasena, String rol) {
 
         if (datos == null ||
                 datos.getCorreo() == null ||
@@ -92,8 +103,7 @@ public class UsuarioService {
         nuevo.setComuna(datos.getComuna());
         nuevo.setDireccion(recortar(datos.getDireccion()));
 
-        // Todos los registros públicos serán clientes
-        nuevo.setRol(ROL_CLIENTE);
+        nuevo.setRol(rol);
 
         // Guardar la contraseña protegida, nunca en texto plano
         nuevo.setPasswordHash(passwordEncoder.encode(contrasena));
@@ -131,21 +141,22 @@ public class UsuarioService {
         return usuarioRepository.countByRol(ROL_CLIENTE);
     }
 
-    // ---------- Gestión de clientes desde el panel admin ----------
+    // ---------- Gestión de usuarios desde el panel admin ----------
+    // El administrador gestiona clientes y vendedores (nunca otros administradores).
 
     @Transactional(readOnly = true)
-    public List<Usuario> listarClientes() {
+    public List<Usuario> listarUsuariosGestionables() {
         return usuarioRepository.findAll().stream()
-                .filter(u -> ROL_CLIENTE.equalsIgnoreCase(u.getRol()))
+                .filter(u -> esGestionable(u.getRol()))
                 .toList();
     }
 
     @Transactional
-    public Usuario crearCliente(UsuarioAdminRequest datos) {
-        validarRolCliente(datos.rol(), "Solo se pueden crear clientes desde esta sección.");
+    public Usuario crearUsuario(UsuarioAdminRequest datos) {
+        String rol = normalizarRol(datos.rol());
 
         if (datos.pass() == null || datos.pass().isBlank()) {
-            throw new IllegalArgumentException("La contraseña es obligatoria para un cliente nuevo.");
+            throw new IllegalArgumentException("La contraseña es obligatoria para un usuario nuevo.");
         }
 
         Usuario nuevo = new Usuario();
@@ -158,14 +169,13 @@ public class UsuarioService {
         nuevo.setComuna(datos.comuna());
         nuevo.setDireccion(datos.direccion());
 
-        return registrarCliente(nuevo, datos.pass());
+        return registrarConRol(nuevo, datos.pass(), rol);
     }
 
     @Transactional
-    public Usuario actualizarCliente(String correoOriginal, UsuarioAdminRequest datos) {
-        validarRolCliente(datos.rol(), "No se puede asignar el rol de administrador desde aquí.");
-
-        Usuario usuario = buscarCliente(correoOriginal);
+    public Usuario actualizarUsuario(String correoOriginal, UsuarioAdminRequest datos) {
+        String rol = normalizarRol(datos.rol());
+        Usuario usuario = buscarGestionable(correoOriginal);
 
         String nuevoCorreo = normalizarCorreo(datos.correo());
         String nuevoRut = normalizarRut(datos.rut());
@@ -185,6 +195,7 @@ public class UsuarioService {
         usuario.setRegion(datos.region());
         usuario.setComuna(datos.comuna());
         usuario.setDireccion(recortar(datos.direccion()));
+        usuario.setRol(rol);
 
         // Contraseña vacía = se conserva la actual
         if (datos.pass() != null && !datos.pass().isBlank()) {
@@ -196,12 +207,12 @@ public class UsuarioService {
     }
 
     @Transactional
-    public void eliminarCliente(String correo) {
-        Usuario usuario = buscarCliente(correo);
+    public void eliminarUsuario(String correo) {
+        Usuario usuario = buscarGestionable(correo);
 
-        // No borrar clientes con pedidos: sus boletas deben conservarse
+        // No borrar usuarios con pedidos: sus boletas deben conservarse
         if (!pedidoRepository.findByUsuarioId(usuario.getId()).isEmpty()) {
-            throw new ConflictoException("Este cliente tiene pedidos. No se puede eliminar.");
+            throw new ConflictoException("Este usuario tiene pedidos. No se puede eliminar.");
         }
 
         usuarioRepository.delete(usuario);
@@ -209,16 +220,27 @@ public class UsuarioService {
 
     // ---------- Reglas internas ----------
 
-    private Usuario buscarCliente(String correo) {
+    private Usuario buscarGestionable(String correo) {
         return usuarioRepository.findByCorreo(normalizarCorreo(correo))
-                .filter(u -> ROL_CLIENTE.equalsIgnoreCase(u.getRol()))
-                .orElseThrow(() -> new RecursoNoEncontradoException("Cliente no encontrado."));
+                .filter(u -> esGestionable(u.getRol()))
+                .orElseThrow(() -> new RecursoNoEncontradoException("Usuario no encontrado."));
     }
 
-    private void validarRolCliente(String rol, String mensaje) {
-        if (rol != null && !rol.isBlank() && !ROL_CLIENTE.equalsIgnoreCase(rol.trim())) {
-            throw new IllegalArgumentException(mensaje);
+    private boolean esGestionable(String rol) {
+        return rol != null && ROLES_GESTIONABLES.contains(rol.toLowerCase(Locale.ROOT));
+    }
+
+    // Rol vacío = cliente. Solo se aceptan "cliente" o "vendedor".
+    private String normalizarRol(String rol) {
+        if (rol == null || rol.isBlank()) {
+            return ROL_CLIENTE;
         }
+        String limpio = rol.trim().toLowerCase(Locale.ROOT);
+        if (!ROLES_GESTIONABLES.contains(limpio)) {
+            throw new IllegalArgumentException(
+                    "Rol no permitido. Desde el panel solo se pueden asignar los roles cliente o vendedor.");
+        }
+        return limpio;
     }
 
     private void validarLargoContrasena(String contrasena) {

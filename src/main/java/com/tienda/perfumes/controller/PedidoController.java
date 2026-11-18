@@ -13,6 +13,7 @@ import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,15 +31,25 @@ public class PedidoController {
         this.pedidoService = pedidoService;
     }
 
-    // Obtener todos los pedidos para el administrador
-    @Operation(summary = "Listar todos los pedidos con su detalle (panel administrador)")
+    // Obtener todos los pedidos (panel de administrador y vendedor)
+    @Operation(summary = "Listar todos los pedidos con su detalle (ADMIN y VENDEDOR)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'VENDEDOR')")
     @GetMapping("/admin")
     public List<Map<String, Object>> obtenerPedidosAdmin() {
         return pedidoService.obtenerPedidosAdmin();
     }
 
+    // Detalle de un pedido (panel de administrador y vendedor)
+    @Operation(summary = "Ver el detalle de un pedido (ADMIN y VENDEDOR)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'VENDEDOR')")
+    @GetMapping("/{id}")
+    public Map<String, Object> obtenerDetalle(@PathVariable Long id) {
+        return pedidoService.obtenerDetalleAdmin(id);
+    }
+
     // Crear un pedido para el cliente autenticado
-    @Operation(summary = "Crear un pedido (boleta) para el cliente autenticado")
+    @Operation(summary = "Crear un pedido (boleta) para el cliente autenticado (CLIENTE)")
+    @PreAuthorize("hasRole('CLIENTE')")
     @PostMapping
     public ResponseEntity<Map<String, Object>> crearPedido(
             @Valid @RequestBody CrearPedidoRequest datos,
@@ -61,7 +72,8 @@ public class PedidoController {
     }
 
     // Procesar el pago de un pedido propio
-    @Operation(summary = "Procesar (simular) el pago de un pedido propio")
+    @Operation(summary = "Procesar (simular) el pago de un pedido propio (CLIENTE)")
+    @PreAuthorize("hasRole('CLIENTE')")
     @PostMapping("/{id}/pago")
     public Map<String, Object> procesarPago(
             @PathVariable Long id,

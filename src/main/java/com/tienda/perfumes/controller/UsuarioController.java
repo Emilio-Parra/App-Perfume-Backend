@@ -2,40 +2,36 @@
 package com.tienda.perfumes.controller;
 
 import com.tienda.perfumes.config.ApiRutas;
+import com.tienda.perfumes.dto.LoginRequest;
+import com.tienda.perfumes.dto.RegistroRequest;
+import com.tienda.perfumes.model.Usuario;
+import com.tienda.perfumes.security.JwtService;
+import com.tienda.perfumes.service.UsuarioService;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
-import com.tienda.perfumes.dto.RegistroRequest;
-import com.tienda.perfumes.dto.LoginRequest;
-import com.tienda.perfumes.model.Usuario;
-import com.tienda.perfumes.service.UsuarioService;
-
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContext;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
-
-import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 @RestController
-@Tag(name = "Usuarios", description = "Registro, login y sesión de clientes")
+@Tag(name = "Usuarios", description = "Registro, login (JWT) y logout de clientes")
 @RequestMapping(ApiRutas.V1 + "/usuarios")
 public class UsuarioController {
 
     private final UsuarioService usuarioService;
+    private final JwtService jwtService;
 
-    public UsuarioController(UsuarioService usuarioService) {
+    public UsuarioController(UsuarioService usuarioService, JwtService jwtService) {
         this.usuarioService = usuarioService;
+        this.jwtService = jwtService;
     }
 
     // Registrar un nuevo cliente
@@ -51,13 +47,10 @@ public class UsuarioController {
                 .body(usuarioService.registrar(datos));
     }
 
-    // Iniciar sesión como cliente
-    @Operation(summary = "Iniciar sesión como cliente")
+    // Iniciar sesión como cliente: devuelve sus datos + el token JWT
+    @Operation(summary = "Iniciar sesión como cliente (devuelve un token JWT)")
     @PostMapping("/login")
-    public ResponseEntity<?> iniciarSesion(
-            @Valid @RequestBody LoginRequest datos,
-            HttpServletRequest request,
-            HttpServletResponse response) {
+    public ResponseEntity<?> iniciarSesion(@Valid @RequestBody LoginRequest datos) {
 
         Usuario usuario = usuarioService.autenticar(
                 datos.correo(), datos.pass()
@@ -66,76 +59,52 @@ public class UsuarioController {
         if (usuario == null) {
             return ResponseEntity
                     .status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of(
-                            "error", "Correo o contraseña incorrectos."
-                    ));
+                    .body(Map.of("error", "Correo o contraseña incorrectos."));
         }
 
-        // Renovar el identificador si ya existe una sesión
-        if (request.getSession(false) != null) {
-            request.changeSessionId();
-        }
+        // El "sub" del token es el ID de MySQL: PedidoController lo usa
+        // para saber qué cliente está comprando.
+        String rol = usuario.getRol() == null
+                ? UsuarioService.ROL_CLIENTE
+                : usuario.getRol();
 
-        // Identificar al cliente mediante su ID de MySQL
-        var autenticacion =
-                new UsernamePasswordAuthenticationToken(
-                        usuario.getId().toString(),
-                        null,
-                        List.of(
-                                new SimpleGrantedAuthority("ROLE_CLIENTE")
-                        )
-                );
+        String token = jwtService.generarToken(
+                usuario.getId().toString(),
+                rol.toUpperCase(Locale.ROOT),
+                Map.of("correo", usuario.getCorreo())
+        );
 
-        // Crear el contexto de seguridad
-        SecurityContext contexto =
-                SecurityContextHolder.createEmptyContext();
+        // Mismos campos que React ya usaba, más el token
+        Map<String, Object> respuesta = new LinkedHashMap<>();
+        respuesta.put("id", usuario.getId());
+        respuesta.put("rut", usuario.getRut());
+        respuesta.put("correo", usuario.getCorreo());
+        respuesta.put("nombre", usuario.getNombre());
+        respuesta.put("apellido", usuario.getApellido());
+        respuesta.put("rol", rol);
+        respuesta.put("fechaNac", usuario.getFechaNac());
+        respuesta.put("region", usuario.getRegion());
+        respuesta.put("comuna", usuario.getComuna());
+        respuesta.put("direccion", usuario.getDireccion());
+        respuesta.put("token", token);
+        respuesta.put("tipoToken", "Bearer");
+        respuesta.put("expiraEnMinutos", jwtService.getExpiracionMinutos());
 
-        contexto.setAuthentication(autenticacion);
-        SecurityContextHolder.setContext(contexto);
-
-        // Guardar la sesión autenticada en Spring Boot
-        new HttpSessionSecurityContextRepository()
-                .saveContext(contexto, request, response);
-
-        // Mantener la respuesta que ya utiliza React
-        return ResponseEntity.ok(usuario);
+        return ResponseEntity.ok(respuesta);
     }
 
-    // Consultar cantidad de clientes registrados
+    // Consultar cantidad de clientes registrados (solo ADMIN, ver SecurityConfig)
     @Operation(summary = "Contar clientes registrados")
     @GetMapping("/total-clientes")
-    public ResponseEntity<?> obtenerTotalClientes() {
-
-        long total = usuarioService.contarClientes();
-
-        return ResponseEntity.ok(
-                Map.of("totalClientes", total)
-        );
+    public Map<String, Long> obtenerTotalClientes() {
+        return Map.of("totalClientes", usuarioService.contarClientes());
     }
 
-
-    // Cerrar la sesión del cliente
-    @Operation(summary = "Cerrar la sesión del cliente")
+    // Con JWT el servidor no guarda sesiones: cerrar sesión = el navegador
+    // borra su token. Este endpoint se mantiene para confirmar el cierre.
+    @Operation(summary = "Cerrar la sesión del cliente (el frontend descarta el token)")
     @PostMapping("/logout")
-    public ResponseEntity<?> cerrarSesion(
-            HttpServletRequest request) {
-
-        // Eliminar la autenticación actual
-        SecurityContextHolder.clearContext();
-
-        // Invalidar la sesión guardada en Spring Boot
-        var sesion = request.getSession(false);
-
-        if (sesion != null) {
-            sesion.invalidate();
-        }
-
-        return ResponseEntity.ok(
-                Map.of(
-                    "mensaje",
-                    "Sesión de cliente cerrada correctamente."
-                )
-        );
+    public Map<String, String> cerrarSesion() {
+        return Map.of("mensaje", "Sesión de cliente cerrada correctamente.");
     }
-
 }

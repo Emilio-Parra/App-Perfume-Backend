@@ -6,38 +6,34 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 import com.tienda.perfumes.dto.LoginRequest;
 import com.tienda.perfumes.model.Administrador;
+import com.tienda.perfumes.security.JwtService;
 import com.tienda.perfumes.service.AdministradorService;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.context.SecurityContext;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 
-import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @RestController
-@Tag(name = "Administrador", description = "Login y perfil del administrador")
+@Tag(name = "Administrador", description = "Login (JWT) y perfil del administrador")
 @RequestMapping(ApiRutas.V1 + "/admin")
 public class AdministradorController {
 
     private final AdministradorService administradorService;
+    private final JwtService jwtService;
 
     public AdministradorController(
-            AdministradorService administradorService) {
+            AdministradorService administradorService,
+            JwtService jwtService) {
 
         this.administradorService = administradorService;
+        this.jwtService = jwtService;
     }
 
     private Map<String, Object> datosPublicos(Administrador admin) {
@@ -50,13 +46,10 @@ public class AdministradorController {
         );
     }
 
-    // Iniciar sesión como administrador
-    @Operation(summary = "Iniciar sesión como administrador")
+    // Iniciar sesión como administrador: devuelve sus datos + el token JWT
+    @Operation(summary = "Iniciar sesión como administrador (devuelve un token JWT)")
     @PostMapping("/login")
-    public ResponseEntity<?> iniciarSesion(
-            @Valid @RequestBody LoginRequest datos,
-            HttpServletRequest request,
-            HttpServletResponse response) {
+    public ResponseEntity<?> iniciarSesion(@Valid @RequestBody LoginRequest datos) {
 
         Administrador admin = administradorService.autenticar(
                 datos.correo(),
@@ -71,32 +64,15 @@ public class AdministradorController {
                     ));
         }
 
-        // Renovar el identificador de sesión si ya existe
-        if (request.getSession(false) != null) {
-            request.changeSessionId();
-        }
+        // El "sub" del token del admin es su correo: /perfil lo usa para buscarlo
+        String token = jwtService.generarToken(admin.getCorreo(), "ADMIN", Map.of());
 
-        // Autenticación con rol ADMIN
-        var autenticacion =
-                new UsernamePasswordAuthenticationToken(
-                        admin.getCorreo(),
-                        null,
-                        List.of(
-                                new SimpleGrantedAuthority("ROLE_ADMIN")
-                        )
-                );
+        Map<String, Object> respuesta = new LinkedHashMap<>(datosPublicos(admin));
+        respuesta.put("token", token);
+        respuesta.put("tipoToken", "Bearer");
+        respuesta.put("expiraEnMinutos", jwtService.getExpiracionMinutos());
 
-        SecurityContext contexto =
-                SecurityContextHolder.createEmptyContext();
-
-        contexto.setAuthentication(autenticacion);
-        SecurityContextHolder.setContext(contexto);
-
-        // Guardar la autenticación en la sesión HTTP
-        new HttpSessionSecurityContextRepository()
-                .saveContext(contexto, request, response);
-
-        return ResponseEntity.ok(datosPublicos(admin));
+        return ResponseEntity.ok(respuesta);
     }
 
     // Perfil guardado en MySQL; no se toman IDs o correos desde React.
@@ -136,21 +112,10 @@ public class AdministradorController {
         return ResponseEntity.ok(datosPublicos(actualizado));
     }
 
-    // Cerrar la sesión del administrador
-    @Operation(summary = "Cerrar la sesión del administrador")
+    // Con JWT el servidor no guarda sesiones: el frontend descarta el token
+    @Operation(summary = "Cerrar la sesión del administrador (el frontend descarta el token)")
     @PostMapping("/logout")
-    public ResponseEntity<?> cerrarSesion(
-            HttpServletRequest request) {
-
-        SecurityContextHolder.clearContext();
-
-        HttpSession sesion = request.getSession(false);
-        if (sesion != null) {
-            sesion.invalidate();
-        }
-
-        return ResponseEntity.ok(Map.of(
-                "mensaje", "Sesión cerrada correctamente."
-        ));
+    public Map<String, String> cerrarSesion() {
+        return Map.of("mensaje", "Sesión cerrada correctamente.");
     }
 }

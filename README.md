@@ -6,6 +6,17 @@ Backend de **Perfumes Store**, proyecto de Fullstack 2. Está desarrollado con *
 - **Frontend:** https://github.com/Emilio-Parra/App-Perfume-eva2
 - **API local:** http://localhost:8080/api/v1/productos
 - **Frontend local:** http://localhost:5173
+- **Swagger (documentación interactiva):** http://localhost:8080/swagger-ui.html
+
+### Documentación técnica
+
+| Documento | Contenido |
+|---|---|
+| [`docs/API.md`](docs/API.md) | Todos los endpoints: método, ruta, rol, cuerpo y respuestas |
+| [`docs/MODELO_DATOS.md`](docs/MODELO_DATOS.md) | Tablas, columnas, relaciones y diagrama de la base de datos |
+| [`docs/SEGURIDAD.md`](docs/SEGURIDAD.md) | Autenticación JWT, roles y matriz de permisos |
+| [`docs/PRUEBAS.md`](docs/PRUEBAS.md) | Pruebas automatizadas, cómo ejecutarlas y resultados |
+| [`docs/INTEGRACION.md`](docs/INTEGRACION.md) | Comunicación frontend ↔ backend, flujos y evidencias |
 
 > **Importante:** estas instrucciones están pensadas para los **PC del instituto**, donde MySQL Workbench suele abrir la conexión local `root` sin pedir contraseña. En esta guía usaremos **`Root1234` en las dos claves que solicita `iniciar-backend.ps1`**: la del usuario MySQL `tienda_app` y, durante la primera ejecución, la del administrador de la tienda `admin@duoc.cl`. **No es la contraseña de `root`**. Es una clave de ejemplo conocida públicamente: **no la reutilices fuera de este proyecto académico ni almacenes datos reales con ella**.
 
@@ -131,7 +142,7 @@ Abrir **una segunda terminal**, manteniendo el backend funcionando en la primera
 
 ```powershell
 git clone https://github.com/Emilio-Parra/App-Perfume-eva2.git
-cd App-Perfume-eva2\app-perfumes
+cd App-Perfume-eva2
 npm install
 npm run dev
 ```
@@ -144,9 +155,11 @@ El frontend conserva por ahora llamadas a `/api/...`. Como el backend responde e
 rewrite: (path) => path.replace(/^\/api(?!\/v1)/, '/api/v1'),
 ```
 
-Esta adaptación es para desarrollo. No reemplaza la configuración del servidor en un despliegue de producción. La futura migración a JWT y a URLs v1 directas no está incluida en esta versión.
+Esta adaptación es para desarrollo. No reemplaza la configuración del servidor en un despliegue de producción.
 
-Las imágenes de los 27 perfumes originales se sirven desde `app-perfumes/public/img/` del frontend; sus rutas se guardan en MySQL. Las imágenes nuevas cargadas en administración se guardan localmente en la carpeta `uploads/` del backend, que está excluida de Git. Si quieren compartir esas nuevas imágenes entre equipos, deben respaldarlas por separado.
+El frontend envía el token JWT automáticamente en cada llamada a `/api` gracias a `src/service/authFetch.js`. Si el token vence, el frontend cierra la sesión y vuelve a la pantalla de login. El detalle está en [`docs/INTEGRACION.md`](docs/INTEGRACION.md).
+
+Las imágenes de los 27 perfumes originales se sirven desde `public/img/` del frontend; sus rutas se guardan en MySQL. Las imágenes nuevas cargadas en administración se guardan localmente en la carpeta `uploads/` del backend, que está excluida de Git. Si quieren compartir esas nuevas imágenes entre equipos, deben respaldarlas por separado.
 
 ## 6. API REST v1, Swagger y seguridad
 
@@ -176,23 +189,39 @@ El backend incorpora `springdoc-openapi-starter-webmvc-ui` (3.2.0) y `OpenApiCon
 
 Los controladores incluyen etiquetas `@Tag` y descripciones `@Operation` para facilitar la exploración de los endpoints. Swagger permite consultar y probar operaciones, pero las operaciones protegidas seguirán necesitando una sesión con el rol adecuado.
 
-### Autenticación y permisos
+### Autenticación con JWT y roles
 
-El acceso de clientes y administrador utiliza **sesiones de Spring Security**, no JWT. Para la API v1, la configuración esperada de permisos es:
+El login devuelve un **token JWT** firmado (HS384, válido por 120 minutos). El frontend lo guarda y lo envía en cada petición con el encabezado:
 
-| Operación | Quién puede |
-|---|---|
-| Consultar productos y categorías | Público |
-| Registrarse e iniciar sesión | Público |
-| Consultar Swagger | Público, solo en este entorno de práctica |
-| Crear, editar, borrar productos y categorías | Administrador autenticado |
-| Subir imágenes | Administrador autenticado |
-| Gestionar clientes y consultar pedidos administrativos | Administrador autenticado |
-| Crear pedidos y simular pagos | Cliente autenticado |
+```
+Authorization: Bearer <token>
+```
 
-**Importante para la evaluación:** verificar antes de la entrega que `SecurityConfig.java` realmente use rutas `/api/v1/...`, restrinja los métodos POST/PUT/DELETE de categorías y proteja los endpoints de imágenes. No basta con cambiar el prefijo en los controladores: las reglas de autorización también deben coincidir.
+El backend **no guarda sesiones** (`SessionCreationPolicy.STATELESS`): `JwtAuthenticationFilter` valida la firma y el vencimiento del token en cada solicitud y registra el rol del usuario en Spring Security.
 
-> **Aviso de seguridad:** el proyecto es académico y usa una configuración de desarrollo. No se debe considerar preparado para producción ni afirmar que usa JWT. La protección CSRF y el endurecimiento de autenticación se deben revisar antes de cualquier despliegue público.
+| Rol | Cómo inicia sesión | Qué puede hacer |
+|---|---|---|
+| **ADMIN** | `POST /api/v1/admin/login` (tabla `administradores`) | Acceso total |
+| **VENDEDOR** | `POST /api/v1/usuarios/login` (tabla `usuarios`, rol `vendedor`) | Ver productos (listado y detalle) y órdenes (listado y detalle) |
+| **CLIENTE** | `POST /api/v1/usuarios/login` (tabla `usuarios`, rol `cliente`) | Solo la tienda: comprar y pagar sus propios pedidos |
+
+- Sin token, una ruta protegida responde **401**. Con token, pero sin el rol necesario, responde **403**.
+- Los vendedores los crea el administrador desde el panel (**Usuarios → Nuevo usuario → Rol: Vendedor**).
+- En Swagger se puede probar con token: hacer login, copiar el `token` de la respuesta y pegarlo en el botón **Authorize**.
+
+El detalle completo está en [`docs/SEGURIDAD.md`](docs/SEGURIDAD.md).
+
+> **Aviso:** la clave del token tiene un valor de desarrollo en `application.properties`. En un despliegue real se debe definir con la variable de entorno `JWT_SECRET` y no subirla al repositorio.
+
+### Pruebas automatizadas
+
+El proyecto incluye **64 pruebas** (JUnit 6, Mockito y MockMvc) que usan una base **H2 en memoria**, por lo que **no necesitan MySQL encendido**:
+
+```bash
+.\mvnw test
+```
+
+Al terminar se genera el reporte de cobertura en `target/site/jacoco/index.html`. El detalle está en [`docs/PRUEBAS.md`](docs/PRUEBAS.md).
 
 ## 7. Errores frecuentes y solución
 
@@ -205,8 +234,10 @@ El acceso de clientes y administrador utiliza **sesiones de Spring Security**, n
 | **La tienda abre, pero no aparecen perfumes** | Revisar `http://localhost:8080/api/v1/productos`, la conexión a MySQL y los mensajes de carga inicial. |
 | **404 en `/api/productos`** | Esa es la ruta antigua. Probar `/api/v1/productos`. En el frontend, verificar el `rewrite` del proxy de Vite. |
 | **No abre Swagger** | Comprobar que el backend esté iniciado y probar `/swagger-ui.html` y `/v3/api-docs`. |
-| **Error 401/403 al guardar categorías** | Verificar sesión de ADMIN y las reglas `/api/v1/categorias/**` de `SecurityConfig.java`. |
-| **No aparecen las fotos** | Comprobar que las imágenes existan en `app-perfumes/public/img/` y que el frontend esté iniciado. |
+| **Error 401 al guardar o ver datos del panel** | El token no se envió o venció (dura 120 minutos). Cerrar sesión y volver a entrar. |
+| **Error 403** | El token es válido, pero el rol no tiene permiso (por ejemplo, un vendedor intentando editar un producto). |
+| **No aparecen las fotos** | Comprobar que las imágenes existan en `public/img/` del frontend y que el frontend esté iniciado. |
+| **`mvnw test` falla** | Las pruebas no usan MySQL. Revisar el mensaje del test que falló en `target/surefire-reports/`. |
 | **`Administrador inicial: credenciales no configuradas`** | Si es la primera vez en esa base, detener el backend y volver a iniciarlo indicando la contraseña inicial del admin. Si el administrador ya existe, se puede ignorar. |
 | **`mvnw.cmd` no funciona / error de Java** | Verificar `java -version` y que se está ejecutando el comando dentro de la carpeta donde está `pom.xml`. |
 
@@ -214,21 +245,26 @@ El acceso de clientes y administrador utiliza **sesiones de Spring Security**, n
 
 ```text
 App-Perfume-Backend/
+├── docs/                     # Documentación técnica (API, modelo, seguridad, pruebas, integración)
 ├── src/
-│   └── main/
-│       ├── java/com/tienda/perfumes/
-│       │   ├── config/       # API v1, OpenAPI, seguridad y carga inicial
-│       │   ├── controller/   # Endpoints REST
-│       │   ├── dto/          # Datos de entrada de las solicitudes
-│       │   ├── model/        # Entidades de MySQL
-│       │   ├── repository/   # Acceso a base de datos con JPA
-│       │   └── service/      # Lógica del negocio
-│       └── resources/
-│           ├── application.properties
-│           └── catalogo_inicial_perfumes.sql
-├── iniciar-backend.ps1     # Inicio guiado en Windows
-├── mvnw.cmd                # Maven Wrapper para Windows
-├── pom.xml                 # Dependencias de Spring Boot
+│   ├── main/
+│   │   ├── java/com/tienda/perfumes/
+│   │   │   ├── config/       # API v1, OpenAPI, Spring Security, CORS y carga inicial
+│   │   │   ├── controller/   # Endpoints REST
+│   │   │   ├── dto/          # Datos de entrada con sus validaciones (@Valid)
+│   │   │   ├── exception/    # Manejo global de errores (400, 401, 403, 404, 409, 500)
+│   │   │   ├── model/        # Entidades de MySQL
+│   │   │   ├── repository/   # Acceso a base de datos con JPA
+│   │   │   ├── security/     # Generación y validación de tokens JWT
+│   │   │   ├── service/      # Lógica del negocio
+│   │   │   └── validation/   # Validación propia del RUN (@RutValido)
+│   │   └── resources/
+│   │       ├── application.properties
+│   │       └── catalogo_inicial_perfumes.sql
+│   └── test/                 # 64 pruebas automatizadas (H2 en memoria)
+├── iniciar-backend.ps1       # Inicio guiado en Windows
+├── mvnw.cmd                  # Maven Wrapper para Windows
+├── pom.xml                   # Dependencias de Spring Boot
 └── README.md
 ```
 

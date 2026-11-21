@@ -32,15 +32,18 @@ public class PedidoService {
     private final PedidoRepository pedidoRepository;
     private final ProductoRepository productoRepository;
     private final UsuarioRepository usuarioRepository;
+    private final SimuladorPago simuladorPago;
 
     public PedidoService(
             PedidoRepository pedidoRepository,
             ProductoRepository productoRepository,
-            UsuarioRepository usuarioRepository) {
+            UsuarioRepository usuarioRepository,
+            SimuladorPago simuladorPago) {
 
         this.pedidoRepository = pedidoRepository;
         this.productoRepository = productoRepository;
         this.usuarioRepository = usuarioRepository;
+        this.simuladorPago = simuladorPago;
     }
 
     // Obtener todos los pedidos
@@ -230,8 +233,8 @@ public class PedidoService {
             );
         }
 
-        // Simular el resultado del pago: 70% de éxito
-        boolean pagoExitoso = Math.random() < 0.7;
+        // Simular el resultado del pago (por defecto 70% de éxito)
+        boolean pagoExitoso = simuladorPago.aprobar();
 
         if (pagoExitoso) {
 

@@ -67,8 +67,13 @@ public class AdministradorController {
         // El "sub" del token del admin es su correo: /perfil lo usa para buscarlo
         String token = jwtService.generarToken(admin.getCorreo(), "ADMIN", Map.of());
 
+        String refreshToken = jwtService.generarRefreshToken(
+        admin.getCorreo(), "ADMIN"
+);
+
         Map<String, Object> respuesta = new LinkedHashMap<>(datosPublicos(admin));
         respuesta.put("token", token);
+        respuesta.put("refreshToken", refreshToken);
         respuesta.put("tipoToken", "Bearer");
         respuesta.put("expiraEnMinutos", jwtService.getExpiracionMinutos());
 

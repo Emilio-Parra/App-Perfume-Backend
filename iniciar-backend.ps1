@@ -21,5 +21,32 @@ if ([string]::IsNullOrWhiteSpace($textoAdmin)) {
     $env:ADMIN_PASSWORD = $textoAdmin
 }
 
+
+
+
+# Conservar la clave JWT entre reinicios sin publicarla en GitHub.
+$rutaJwt = Join-Path $PSScriptRoot '.env.jwt.local'
+
+if ([string]::IsNullOrWhiteSpace($env:JWT_SECRET)) {
+    if (Test-Path $rutaJwt) {
+        $env:JWT_SECRET = (Get-Content $rutaJwt -Raw).Trim()
+    }
+    else {
+        $bytes = New-Object byte[] 32
+        $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+        try {
+            $rng.GetBytes($bytes)
+        }
+        finally {
+            $rng.Dispose()
+        }
+
+        $env:JWT_SECRET = [Convert]::ToBase64String($bytes)
+        [System.IO.File]::WriteAllText($rutaJwt, $env:JWT_SECRET)
+    }
+}
+
+
+
 Write-Host 'Iniciando Spring Boot. Si la tabla productos esta vacia, se cargara el catalogo inicial.'
 & .\mvnw.cmd spring-boot:run

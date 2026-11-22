@@ -74,6 +74,11 @@ public class UsuarioController {
                 Map.of("correo", usuario.getCorreo())
         );
 
+        String refreshToken = jwtService.generarRefreshToken(
+        usuario.getId().toString(),
+        rol.toUpperCase(Locale.ROOT)
+        );
+
         // Mismos campos que React ya usaba, más el token
         Map<String, Object> respuesta = new LinkedHashMap<>();
         respuesta.put("id", usuario.getId());
@@ -87,6 +92,7 @@ public class UsuarioController {
         respuesta.put("comuna", usuario.getComuna());
         respuesta.put("direccion", usuario.getDireccion());
         respuesta.put("token", token);
+        respuesta.put("refreshToken", refreshToken);
         respuesta.put("tipoToken", "Bearer");
         respuesta.put("expiraEnMinutos", jwtService.getExpiracionMinutos());
 

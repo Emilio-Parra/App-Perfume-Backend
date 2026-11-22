@@ -3,12 +3,17 @@ package com.tienda.perfumes.security;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Base64;
+import java.util.Date;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -64,14 +69,41 @@ class JwtServiceTest {
 
     @Test
     @DisplayName("Rechaza un token vencido")
-    void rechazaTokenVencido() throws InterruptedException {
-        JwtService tokensDeCeroMinutos = new JwtService(SECRETO, 0);
-        String token = tokensDeCeroMinutos.generarToken("1", "ADMIN", Map.of());
+    void rechazaTokenVencido() {
+        // El servicio exige una duracion positiva; fabricamos un JWT ya vencido
+        // usando la misma clave y los claims obligatorios del token de acceso.
+        Instant ahora = Instant.now();
+        String tokenVencido = Jwts.builder()
+                .subject("1")
+                .claim(JwtService.CLAIM_ROL, "ADMIN")
+                .claim(JwtService.CLAIM_TIPO, JwtService.TIPO_ACCESO)
+                .issuer("perfumes-store")
+                .issuedAt(Date.from(ahora.minusSeconds(180)))
+                .expiration(Date.from(ahora.minusSeconds(60)))
+                .signWith(Keys.hmacShaKeyFor(SECRETO.getBytes(StandardCharsets.UTF_8)))
+                .compact();
 
-        Thread.sleep(1100); // la fecha de vencimiento ya pasó
-
-        assertThatThrownBy(() -> tokensDeCeroMinutos.validar(token))
+        assertThatThrownBy(() -> jwtService.validar(tokenVencido))
                 .isInstanceOf(ExpiredJwtException.class);
+    }
+
+    @Test
+    @DisplayName("El refresh token se valida para renovacion, pero no sirve para entrar a la API")
+    void refreshTokenNoEsTokenDeAcceso() {
+        String refresh = jwtService.generarRefreshToken("15", "CLIENTE");
+
+        assertThat(jwtService.validarRefresh(refresh).getSubject()).isEqualTo("15");
+        assertThatThrownBy(() -> jwtService.validar(refresh))
+                .isInstanceOf(JwtException.class);
+    }
+
+    @Test
+    @DisplayName("El token de acceso no sirve como refresh token")
+    void accesoNoEsRefreshToken() {
+        String token = jwtService.generarToken("15", "CLIENTE", Map.of());
+
+        assertThatThrownBy(() -> jwtService.validarRefresh(token))
+                .isInstanceOf(JwtException.class);
     }
 
     @Test

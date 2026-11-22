@@ -80,12 +80,14 @@ public class SecurityConfig {
                 // Login y logout (públicos: el logout solo confirma el cierre)
                 .requestMatchers(
                     HttpMethod.POST,
+                    API + "/auth/refresh",
                     API + "/admin/login",
                     API + "/admin/logout",
                     API + "/usuarios/login",
                     API + "/usuarios/logout",
                     API + "/usuarios/registro"
                 ).permitAll()
+
 
                 // Pedidos: el ADMIN y el VENDEDOR pueden ver el listado y el detalle
                 .requestMatchers(HttpMethod.GET, API + "/pedidos/**").hasAnyRole("ADMIN", "VENDEDOR")

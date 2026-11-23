@@ -96,7 +96,10 @@ Si ya descargaron el repositorio, **no lo clonen otra vez**: abran la carpeta qu
 
 **Forma recomendada de iniciar:**
 
+**Inicio de sesión con Google (también en los PC del instituto):** antes de iniciar Spring Boot, configura el Client ID en **esta misma terminal del BACKEND**. Debes repetir esta línea cada vez que abras una terminal nueva para arrancar el servidor; no hace falta reinstalar Google ni crear otro proyecto en Google Cloud.
+
 ```powershell
+$env:GOOGLE_CLIENT_ID = "94975653203-jvn7a69uau90scm9c1gu2uk5sh5e3sq2.apps.googleusercontent.com"
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\iniciar-backend.ps1
 ```
 
@@ -139,6 +142,16 @@ En el primer inicio sobre una base de datos nueva:
 ## 5. Iniciar también el frontend React
 
 Abrir **una segunda terminal**, manteniendo el backend funcionando en la primera:
+
+**Inicio de sesión con Google (primera vez en cada PC):** en la **raíz del FRONTEND** (`App-Perfume-eva2`, junto a `package.json`), crea un archivo llamado `.env.local` si aún no existe. Si ya existe, **no lo reemplaces**: solo agrega o actualiza esta línea:
+
+```env
+VITE_GOOGLE_CLIENT_ID=94975653203-jvn7a69uau90scm9c1gu2uk5sh5e3sq2.apps.googleusercontent.com
+```
+
+Hazlo **antes de `npm run dev`**. Reinicia Vite si ya estaba abierto. El archivo `.env.google.example` de GitHub sirve de referencia, pero Vite lee `.env.local`. El origen autorizado de Google Cloud es `http://localhost:5173`.
+
+**Al probar en una base MySQL nueva:** primero registra tu cuenta de Gmail en la tienda usando el formulario normal; luego cierra sesión y usa **Acceder con Google**. La cuenta también debe estar autorizada como usuario de prueba en Google Cloud mientras la aplicación esté en modo de prueba.
 
 ```powershell
 git clone https://github.com/Emilio-Parra/App-Perfume-eva2.git

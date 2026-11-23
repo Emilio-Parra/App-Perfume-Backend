@@ -26,6 +26,12 @@ public class Usuario {
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
+    // Identificador estable de la cuenta Google, no se usa el correo como ID permanente.
+    // Nullable: los usuarios existentes siguen funcionando con su contrasena.
+    @JsonIgnore
+    @Column(name = "google_sub", unique = true, length = 255)
+    private String googleSub;
+
     private String rol = "cliente";
     private String fechaNac;
     private String region;
@@ -81,6 +87,14 @@ public class Usuario {
 
     public void setPasswordHash(String passwordHash) {
         this.passwordHash = passwordHash;
+    }
+
+    public String getGoogleSub() {
+        return googleSub;
+    }
+
+    public void setGoogleSub(String googleSub) {
+        this.googleSub = googleSub;
     }
 
     public String getRol() {

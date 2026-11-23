@@ -11,6 +11,9 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     // Buscar un usuario por correo
     Optional<Usuario> findByCorreo(String correo);
 
+    // Cuenta Google vinculada mediante el ID 'sub' verificado.
+    Optional<Usuario> findByGoogleSub(String googleSub);
+
     // Buscar un usuario por RUT
     Optional<Usuario> findByRut(String rut);
 

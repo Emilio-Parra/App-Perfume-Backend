@@ -50,6 +50,12 @@
 		</dependency>
 
 
+		<!-- Verificar la firma RS256 y las claves publicas de Google ID Token -->
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-oauth2-jose</artifactId>
+		</dependency>
+
 		<!-- Validación de datos de entrada (@Valid, @NotBlank, @Size, @Min, etc.) -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
